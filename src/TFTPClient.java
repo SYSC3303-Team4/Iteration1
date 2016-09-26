@@ -98,10 +98,6 @@ public class TFTPClient
 	{
 		generalSocket = gs;
 	}
-	public void setVerbose(boolean f)
-	{
-		verbose = f;
-	}
 	
 	
 	//enable/disable verbose mode
