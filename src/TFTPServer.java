@@ -112,11 +112,11 @@ public class TFTPServer {
          
          // Create a response.
          if (req==Request.READ) { // for Read it's 0301
-        	Thread readRequest =  new Thread(new readThread(new JTextArea()));
+        	Thread readRequest =  new Thread(new readThread(new JTextArea(),receivePacket));
         	readRequest.start();
             response = readResp;
          } else if (req==Request.WRITE) { // for Write it's 0400
-        	Thread writeRequest =  new Thread(new writeThread(new JTextArea()));
+        	Thread writeRequest =  new Thread(new writeThread(new JTextArea(),receivePacket));
          	writeRequest.start();
             response = writeResp;
          } else { // it was invalid, just quit
@@ -140,13 +140,15 @@ class readThread implements Runnable
      * The text area where this thread's output will be displayed.
      */
     private JTextArea transcript;
+    private DatagramPacket receivePacket;
     private DatagramPacket sendPacket;
     private DatagramSocket sendSocket;
-    public static final byte[] readResp = {0, 3, 0, 1};
+    public static final byte[] response = {0, 3, 0, 1};
     
 
-    public readThread(JTextArea transcript) {
+    public readThread(JTextArea transcript, DatagramPacket receivePacketInfo) {
         this.transcript = transcript;
+        receivePacket = receivePacketInfo;
     }
 
     public void run() {
@@ -168,14 +170,56 @@ class readThread implements Runnable
         //     so we extract the port that the client used to send us the
         //     datagram, and use that as the destination port for the TFTP
         //     packet.
-     
+    	
+    	int len, j=0, k=0;
+    	len = sendPacket.getLength();
+
+        //Parsing Data
+        ByteArrayOutputStream filename = new ByteArrayOutputStream();
+		ByteArrayOutputStream mode = new ByteArrayOutputStream();
+		boolean change = false; 
+		for(int i = 2; i<receivePacket.getData().length;i++){
+			if(receivePacket.getData()[i]>=32){
+				if(change == false){
+				filename.write(receivePacket.getData()[i]);
+				}
+				else{
+					mode.write(receivePacket.getData()[i]);
+				}
+			}
+			if(receivePacket.getData()[i]!=0){
+				if(receivePacket.getData()[i+1] == 0){
+					change = true;
+					i++;
+				}
+			}
+		}
+		
+		
+		System.out.println("Request parsed for:");
+		System.out.println("	Filename: " + new String(filename.toByteArray(),0,filename.toByteArray().length));
+		System.out.println("	Mode: " + new String(mode.toByteArray(),0,mode.toByteArray().length) + "\n");
+        
+        //Copy file
+        TFTPFileCopier fileCopier = new TFTPFileCopier();
+        try {
+			fileCopier.transfer(filename.toByteArray());
+		} catch (FileNotFoundException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+        
+        
         sendPacket = new DatagramPacket(response, response.length,
                               receivePacket.getAddress(), receivePacket.getPort());
 
         System.out.println("Server: Sending packet:");
         System.out.println("To host: " + sendPacket.getAddress());
         System.out.println("Destination host port: " + sendPacket.getPort());
-        len = sendPacket.getLength();
+      
         System.out.println("Length: " + len);
         System.out.println("Containing: ");
         for (j=0;j<len;j++) {
@@ -221,15 +265,19 @@ class writeThread implements Runnable
     JTextArea transcript;
     private DatagramPacket sendPacket;
     private DatagramSocket sendSocket;
+    private DatagramPacket receivePacket;
     public static final byte[] response = {0, 4, 0, 0};
+    
+    
 
-    public writeThread(JTextArea transcript) {
+    public writeThread(JTextArea transcript, DatagramPacket receivePacketInfo) {
         this.transcript = transcript;
+        receivePacket = receivePacketInfo;
     }
 
     public void run() {
-    	/* COPY AND PASTED THE ACK SECTION FROM THE AMPLE SOLUTION TO HELP GET STARTED*/
-   	 // Construct a datagram packet that is to be sent to a specified port
+       /* COPY AND PASTED THE ACK SECTION FROM THE AMPLE SOLUTION TO HELP GET STARTED*/
+   	   // Construct a datagram packet that is to be sent to a specified port
        // on a specified host.
        // The arguments are:
        //  data - the packet data (a byte array). This is the response.
@@ -246,7 +294,47 @@ class writeThread implements Runnable
        //     so we extract the port that the client used to send us the
        //     datagram, and use that as the destination port for the TFTP
        //     packet.
-   	/*
+       int len, j=0, k=0;
+	   len = sendPacket.getLength();
+	
+	   //Parsing Data for filename and mode
+	   ByteArrayOutputStream filename = new ByteArrayOutputStream();
+	   ByteArrayOutputStream mode = new ByteArrayOutputStream();
+	   boolean change = false; 
+	   for(int i = 2; i<receivePacket.getData().length;i++){
+		   if(receivePacket.getData()[i]>=32){
+			   if(change == false){
+				   filename.write(receivePacket.getData()[i]);
+			   }
+			   else{
+				   mode.write(receivePacket.getData()[i]);
+			   }
+		   }
+		   if(receivePacket.getData()[i]!=0){
+			   if(receivePacket.getData()[i+1] == 0){
+				   change = true;
+				   i++;
+			   }
+			}
+	   }
+		
+		
+	   System.out.println("Request parsed for:");
+	   System.out.println("	Filename: " + new String(filename.toByteArray(),0,filename.toByteArray().length));
+	   System.out.println("	Mode: " + new String(mode.toByteArray(),0,mode.toByteArray().length) + "\n");
+	    
+	   //Copy file
+	   TFTPFileCopier fileCopier = new TFTPFileCopier();
+	   try {
+		   fileCopier.transfer(filename.toByteArray());
+	   } catch (FileNotFoundException e1) {
+		   // TODO Auto-generated catch block
+		   e1.printStackTrace();
+	   } catch (IOException e1) {
+		   // TODO Auto-generated catch block
+		   e1.printStackTrace();
+	   }
+	       
        sendPacket = new DatagramPacket(response, response.length,
                              receivePacket.getAddress(), receivePacket.getPort());
 
@@ -284,9 +372,8 @@ class writeThread implements Runnable
 
        // We're finished with this socket, so close it.
        sendSocket.close();
-		*/
 	
-        transcript.append(Thread.currentThread() + " finished\n");
+       transcript.append(Thread.currentThread() + " finished\n");
     }
 }
 

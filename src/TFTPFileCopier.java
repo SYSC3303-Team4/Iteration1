@@ -2,15 +2,14 @@ import java.io.*;
 
 /**
  * FileCopier.java - Demonstrates how to use Java's byte stream I/O
- * classes to copy a file. Copies the contents of in.dat to out.dat.
- *
- * @version 1.1 February 26, 2002
+ * classes to copy a file.
  */
 public class TFTPFileCopier
 {
 	
 	private String clientFilepath;
 	private String serverFilepath;
+	
 	public TFTPFileCopier(){
 		clientFilepath = new String("C:"+ File.separator +"Users"+ File.separator+"Public"+ File.separator +"Documents");
 		serverFilepath = new String("C:"+ File.separator +"Users"+ File.separator+"Public"+ File.separator +"Documents");
@@ -54,7 +53,10 @@ public class TFTPFileCopier
     }
     
     public void setClientFilepath(String Filepath){
-    	
+    	clientFilepath = Filepath;
+    }
+    public String getCLientFilepath(){
+    	return clientFilepath;
     }
     
 }
