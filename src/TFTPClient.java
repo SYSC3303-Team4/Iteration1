@@ -53,7 +53,7 @@ public class TFTPClient
 	
 	
 	//generic constructor
-	public Client()
+	public TFTPClient()
 	{
 		//construct a socket, bind to any local port
 		try
@@ -268,7 +268,7 @@ public class TFTPClient
 	public static void main (String[] args) 
 	{
 		//declaring local variables
-		Client client = new Client();
+		TFTPClient client = new TFTPClient();
 		byte flipFlop = 0x01;
 		
 		//send directly to server and non-verbose
