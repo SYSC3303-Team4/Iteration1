@@ -140,6 +140,9 @@ class readThread implements Runnable
      * The text area where this thread's output will be displayed.
      */
     private JTextArea transcript;
+    private DatagramPacket sendPacket;
+    private DatagramSocket sendSocket;
+    public static final byte[] readResp = {0, 3, 0, 1};
     
 
     public readThread(JTextArea transcript) {
@@ -165,7 +168,7 @@ class readThread implements Runnable
         //     so we extract the port that the client used to send us the
         //     datagram, and use that as the destination port for the TFTP
         //     packet.
-    	/*
+     
         sendPacket = new DatagramPacket(response, response.length,
                               receivePacket.getAddress(), receivePacket.getPort());
 
@@ -203,7 +206,7 @@ class readThread implements Runnable
 
         // We're finished with this socket, so close it.
         sendSocket.close();
-		*/
+		
         transcript.append(Thread.currentThread() + " finished\n");
     }
     
@@ -216,6 +219,9 @@ class writeThread implements Runnable
      * The text area where this thread's output will be displayed.
      */
     JTextArea transcript;
+    private DatagramPacket sendPacket;
+    private DatagramSocket sendSocket;
+    public static final byte[] response = {0, 4, 0, 0};
 
     public writeThread(JTextArea transcript) {
         this.transcript = transcript;
