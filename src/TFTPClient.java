@@ -2,8 +2,8 @@
 *Class:             TFTPClient.java
 *Project:           TFTP Project - Group 4
 *Author:            Jason Van Kerkhoven                                             
-*Date of Update:    25/09/2016                                              
-*Version:           1.1.0                                                      
+*Date of Update:    28/09/2016                                              
+*Version:           1.1.2                                                      
 *                                                                                   
 *Purpose:           Generates a datagram following the format of [0,R/W,STR1,0,STR2,0],
 					in which R/W signifies read (1) or write (2), STR1 is a filename,
@@ -15,7 +15,20 @@
 					packet. Datagram can be 512B max
 * 
 * 
-*Update Log:        v1.1.0
+*Update Log:        v1.1.2
+*						- now implements TFTPReader class
+*						- can read data from file
+*						- DOES NOT SEND ACKS
+*						- DOES NOT HAVE BLOCK NUMS
+*						- bug with java.nullpointer exception in send() method fixed
+*						- some methods renamed
+*						- generateDatagram(..) replaced with 2 new methods:
+*								generateRWRQ(...) | for RRQ or WRQ
+*								generateDATA()	  | for DATA
+*						- sendAndEcho() is now private, only called from master send() method
+*						- a ton of constants added (see class constants section)
+*						- 
+*					v1.1.0
 *						- verbose mode added (method added)
 *						- client can now send datagrams to errorSim OR
 *						  directly to server (ie method testMode)
@@ -35,6 +48,7 @@
 //import external libraries
 import java.io.*;
 import java.net.*;
+import java.util.*;
 
 
 public class TFTPClient 
@@ -45,11 +59,16 @@ public class TFTPClient
 	private DatagramSocket generalSocket;
 	private boolean verbose;
 	private int outPort;
+	private TFTPReader reader ;
+	private byte[] blockNum ;
 	
 	//declaring local class constants
 	private static final int IN_PORT_ERRORSIM = 23;
 	private static final int IN_PORT_SERVER = 69;
-	private static final int MAX_SIZE = 100;
+	private static final int MAX_SIZE = 512;
+	private static final byte[] OPCODE_RRQ =  {0,1}; 
+	private static final byte[] OPCODE_WRQ =  {0,2};
+	private static final byte[] OPCODE_DATA = {0,3};
 	
 	
 	//generic constructor
@@ -70,6 +89,8 @@ public class TFTPClient
 		verbose = false;
 		//initialize test mode --> off
 		outPort = IN_PORT_SERVER ;
+		//make an empty reader
+		reader = new TFTPReader();
 	}
 	
 	
@@ -132,8 +153,54 @@ public class TFTPClient
 	}
 	
 	
-	//generate DatagramPacket, save as sentPacket 
-	public void generateDatagram(String fileName, String mode, byte RWval)
+	//generate DatagramPacket, save as sentPacket
+	//type: DATA
+	public void generateDATA()
+	{
+		if(verbose)
+		{
+			System.out.println("Client: Prepping DATA packet #" + "NULL");
+		}
+		
+		//construct array to hold data
+		byte[] data = reader.pop();
+		byte[] toSend = new byte[data.length + 4];
+		
+		//constuct array
+		for(int i=0; i<2; i++)
+		{
+			toSend[i] = OPCODE_DATA[i];
+		}
+		for(int i = 2; i < 4; i++)
+		{
+			toSend[i] = 0x09 ;
+		}
+		for(int i = 0; i < data.length; i++)
+		{
+			toSend[i+4] = data[i] ;
+		}
+		
+		//generate and save datagram packet
+		try
+		{
+			sentPacket = new DatagramPacket(data, data.length, InetAddress.getLocalHost(), outPort);
+			if(verbose)
+			{
+				System.out.println("Client: Packet successfully created");
+			}
+		}
+		catch(UnknownHostException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+		
+	}
+	
+	
+	//generate DatagramPacket, save as sentPacket
+	//type: RRW or WRQ
+	public void generateRWRQ(String fileName, String mode, byte RWval)
 	{
 		//generate the data to be sent in datagram packet
 		if(verbose)
@@ -168,7 +235,7 @@ public class TFTPClient
 		data[i] = 0x00;
 			
 		
-		//generate and return datagram packet
+		//generate and save datagram packet
 		try
 		{
 			sentPacket = new DatagramPacket(data, data.length, InetAddress.getLocalHost(), outPort);
@@ -185,8 +252,40 @@ public class TFTPClient
 	}
 	
 	
+	//send datagram, recieve ACKs
+	public void send(String file, String mode, byte RWval)
+	{
+		//read and split file
+		try
+		{
+			reader.readAndSplit(file);
+			
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+		
+		//prep RRQ/RRW to send
+		generateRWRQ(file, mode, RWval);
+		//send RRQ/RRW
+		sendAndEcho();
+		//wait for ACK
+		//_INSERT ACK HERE_
+		
+		//send DATA
+		while ( !(reader.isEmpty()) )
+		{
+			generateDATA();
+			sendAndEcho();
+			// _INSERT ACK HERE_
+		}
+	}
+	
+	
 	//send and echo the datagram
-	public void sendAndEcho()
+	private void sendAndEcho()
 	{
 		//print packet info IF in verbose
 		if(verbose)
@@ -197,15 +296,15 @@ public class TFTPClient
 			System.out.println("        Host:  " + sentPacket.getAddress());
 			System.out.println("        Port:  " + sentPacket.getPort());
 			System.out.println("        Bytes: " + sentPacket.getLength());
-			System.out.println("        Cntn:  " + (new String(data,0,packetSize)));
 			System.out.printf("%s", "        Cntn:  ");
-			
 			for(int i = 0; i < packetSize; i++)
 			{
 				System.out.printf("0x%02X", data[i]);
 				System.out.printf("%-2c", ' ');
 			}
 			System.out.println("");
+			System.out.println("        Cntn:  " + (new String(data,0,packetSize)));
+			
 		}
 		//send packet
 		try
@@ -267,13 +366,24 @@ public class TFTPClient
 		TFTPClient client = new TFTPClient();
 		byte flipFlop = 0x01;
 		
-		//send directly to server and non-verbose
+		//send directly to server and verbose ON
 		client.testMode(false);
-		client.verboseMode(false);
+		client.verboseMode(true);
 		
-		for(int i=0; i<10; i++)
+		//send full fille (includes wait for ACK)
+		client.send("DatagramsOutForHarambe.txt", "octet", (byte)0x01);
+		
+		//receive server response
+		
+		
+		
+		
+		
+		
+		/*
+		while (reader.peek() != null)
 		{
-			//generate datagram
+			//generate datagram RRW
 			client.generateDatagram("DatagramsOutForHarambe.txt","octet", flipFlop);
 		
 			//send and echo outgoing datagram
@@ -294,6 +404,7 @@ public class TFTPClient
 			
 			System.out.println("----------------------------------------\n");
 		}
+		*/
 		
 		//close client
 		client.close();

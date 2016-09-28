@@ -23,23 +23,33 @@ import java.util.*;
 
 public class TFTPReader 
 {
+	//declaring local instance variables
+	LinkedList<byte[]> dataChain;
+	
 	//declaring local class constants
 	private static final int MAX_SIZE = 512;
+	
+	
+	//constructor
+	public TFTPReader()
+	{
+		dataChain = new LinkedList<byte[]>();
+	}
 
 	
 	/* reads file passed to it, returns a linked list of byte[]
 	 * splits file into arrays (0B to MAX_Size in length) 
-	 * passes back a linked list of these arrays 
 	 * (last array will ALWAYS be less than MAX_SIZE in length)
-	 */
-	public LinkedList<byte[]> readAndSplit(String file)
-	throws FileNotFoundException, IOException 
+	 */	
+	public void readAndSplit(String file) throws FileNotFoundException, IOException 
 	{
 		//declaring local variables
-		LinkedList<byte[]> dataChain = new LinkedList<byte[]>();
 		byte[] arr = new byte[MAX_SIZE];
 		int b = 0;
 		int i = 0;
+		
+		//clear dataChain
+		dataChain.clear();
 		
 		//load buffer with data
 		BufferedInputStream input = new BufferedInputStream(new FileInputStream(file));
@@ -73,23 +83,54 @@ public class TFTPReader
 		
 		//close buffer
 		input.close();
-		
-		return dataChain;
 	}
 	
-	/*
+	
+	//passes the next [512max] array of bytes
+	public byte[] pop()
+	{
+		if (dataChain.peek() != null)
+		{
+			return dataChain.pop();
+		}
+		else
+		{
+			return null;
+		}
+	}
+	
+	
+	//looks at next array of bytes
+	public byte[] peek()
+	{
+		return dataChain.peek();
+	}
+	
+	
+	//returns true if empty
+	public boolean isEmpty()
+	{
+		return dataChain.isEmpty();
+	}
+	
+	
+	//returns how many byte arrays have been read
+	public int arrNum()
+	{
+		return dataChain.size();
+	}
+	
+	
 	//test function please ignore
 	public static void main(String args[])
 	{
 		TFTPReader reader = new TFTPReader();
 		int n = 0 ;
-		LinkedList<byte[]> data = null;
 		byte[] arr ;
 		
 		try
 		{
-			data = reader.readAndSplit("testFile.dat");
-			
+			reader.readAndSplit("DatagramsOutForHarambe.txt");
 		}
 		catch (IOException e)
 		{
@@ -97,17 +138,17 @@ public class TFTPReader
 			System.exit(1);
 		}
 		
-		System.out.println("Packets: " + data.size());
-		while (data.peek() != null)
+		System.out.println("Packets: " + reader.arrNum());
+		while ( !(reader.isEmpty()) )
 		{
 			n++;
-			arr = data.pop();
+			arr = reader.pop();
 			System.out.println("Packet #" + n + ": " + arr.length + " Bytes");
 			for(int i=0; i<arr.length; i++)
 			{
-				System.out.println("  " + (char)arr[i]);
+				System.out.println("  " + (char)arr[i] + " | " + arr[i]);
 			}
 		}
 	}
-	*/
+	
 }
