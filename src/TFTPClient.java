@@ -15,7 +15,11 @@
 					packet. Datagram can be 512B max
 * 
 * 
-*Update Log:		v1.1.4 
+*Update Log:		
+					v1.1.5
+						-UI Integration
+					
+					v1.1.4 
 *						- numerous dangerous accessors/mutators removed
 *						  (they were [and should] never called)
 *						- TFTPWriter class implemented
@@ -68,7 +72,7 @@
  *		[x] Figure out what to do with all incoming packets
  *		[ ] Add packet numbering (is it a 16bit int or a 0byte followed by a 8bit number????)
  *		[ ] Test functionality w/ modified server
- *		[ ] Integrate with UI
+ *		[* ] Integrate with UI
  *		[ ] Write a test class if time permits (????)
  *		[ ] Update ReadMe.txt
  *		[x] TFTPWriter class
@@ -99,6 +103,11 @@ public class TFTPClient
 	private static final byte[] OPCODE_WRQ =  {0,2};
 	private static final byte[] OPCODE_DATA = {0,3};
 	
+	//declaring local UI variables
+	private Scanner scan=new Scanner(System.in);//allow text input
+	//private boolean validMode=false; will use later
+	private boolean validOut=false;
+	
 	
 	//generic constructor
 	public TFTPClient()
@@ -115,7 +124,57 @@ public class TFTPClient
 			System.exit(1);
 		}
 		//initialize echo --> off
-		verbose = false;
+		while(validOut==false)
+		{
+			System.out.println("Select Output Mode: Quite (Q) or Verbose(V)");
+			String userIn = scan.nextLine();
+			
+			if(userIn.equals("Q")|| userIn.equals("q"))
+			{
+				verbose = false;
+				validOut=true;
+				System.out.println("Quite mode selected \n");
+			}
+			
+			else if (userIn.equals("V")||userIn.equals("v"))
+			{
+				verbose=true;
+				validOut=true;
+				System.out.println("Verbose mode selected \n");
+			}
+			
+			else
+			{
+				System.out.println("Invalid Output mode, please try again");
+			}
+		}
+		/* Test/Normal Mode, not needed for itt1, will need later
+		while(validMode==false)
+		{
+			System.out.println("Select Operation Mode: Test(T) or Normal (N) ");
+			String userIn = scan.nextLine();
+			
+			if(userIn.equals("T")|| userIn.equals("t"))
+			{
+				verbose = false;
+				validMode=true;
+			}
+			
+			else if (userIn.equals("N")|| userIn.equals("n"))
+			{
+				verbose=true;
+				validMode=true;
+			}
+			
+			else
+			{
+				System.out.println("Invalid Output mode, please try again");
+			}
+		}
+		//initialize test mode --> off
+		outPort = IN_PORT_SERVER ;
+	*/
+	}
 		//initialize test mode --> off
 		outPort = IN_PORT_SERVER ;
 		//make an empty reader
