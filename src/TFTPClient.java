@@ -2,8 +2,8 @@
 *Class:             TFTPClient.java
 *Project:           TFTP Project - Group 4
 *Author:            Jason Van Kerkhoven                                             
-*Date of Update:    28/09/2016                                              
-*Version:           1.1.3                                                      
+*Date of Update:    29/09/2016                                              
+*Version:           1.1.4                                                      
 *                                                                                   
 *Purpose:           Generates a datagram following the format of [0,R/W,STR1,0,STR2,0],
 					in which R/W signifies read (1) or write (2), STR1 is a filename,
@@ -15,7 +15,14 @@
 					packet. Datagram can be 512B max
 * 
 * 
-*Update Log:        v1.1.3
+*Update Log:		v1.1.4 
+*						- numerous dangerous accessors/mutators removed
+*						  (they were [and should] never called)
+*						- TFTPWriter class implemented
+*						- ACKs now received (their validity not checked)
+*						- method printDatagram(..) added for ease of printing
+*						- method readAndEcho() repurposed to readPacket()
+*					v1.1.3
 *						- verbose formating altered
 *						- RRQ/WRQ method now uses class constants as opposed to magic numbers
 *						  (code smell removed)
@@ -54,15 +61,17 @@
 
 /*
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ TO DO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~(as of v1.1.3)
- *		[ ] Add receiving and checking of ACKs
+ *		[x] !!!!!!!!FIX CLIENT RECEIVE ERROR!!!!!!!!
+ *		[x] Add receiving and checking of ACKs
  *		[ ] Further check reader to make sure it is sending the correct packets
  *		[ ] Patch receive method with a master method that can handle multiple packets
- *		[ ] Figure out what to do with all incoming packets
+ *		[x] Figure out what to do with all incoming packets
  *		[ ] Add packet numbering (is it a 16bit int or a 0byte followed by a 8bit number????)
  *		[ ] Test functionality w/ modified server
  *		[ ] Integrate with UI
  *		[ ] Write a test class if time permits (????)
  *		[ ] Update ReadMe.txt
+ *		[x] TFTPWriter class
  */
 
 
@@ -79,7 +88,8 @@ public class TFTPClient
 	private DatagramSocket generalSocket;
 	private boolean verbose;
 	private int outPort;
-	private TFTPReader reader ;
+	private TFTPReader reader;
+	private TFTPWriter writer;
 	
 	//declaring local class constants
 	private static final int IN_PORT_HOST = 23;
@@ -110,6 +120,8 @@ public class TFTPClient
 		outPort = IN_PORT_SERVER ;
 		//make an empty reader
 		reader = new TFTPReader();
+		//make an empty writer
+		writer = new TFTPWriter();
 	}
 	
 	
@@ -121,22 +133,6 @@ public class TFTPClient
 	public DatagramPacket getRecievedPacket()
 	{
 		return recievedPacket;
-	}
-	public DatagramSocket getGeneralSocket()
-	{
-		return generalSocket;
-	}
-	public void setSentPacket(DatagramPacket dp)
-	{
-		sentPacket = dp;
-	}
-	public void setRecievedPacket(DatagramPacket dp)
-	{
-		recievedPacket = dp;
-	}
-	public void setGeneralSocket(DatagramSocket gs)
-	{
-		generalSocket = gs;
 	}
 	
 	
@@ -293,14 +289,15 @@ public class TFTPClient
 		//send RRQ/RRW
 		sendPacket();
 		//wait for ACK
-		//_INSERT ACK HERE_
+		//receiveACK();
+		receivePacket("ACK");
 		
 		//send DATA
 		while ( !(reader.isEmpty()) )
 		{
 			generateDATA();
 			sendPacket();
-			// _INSERT ACK HERE_
+			//receiveACK();
 		}
 	}
 	
@@ -341,15 +338,42 @@ public class TFTPClient
 	}
 	
 	
+	//receive ACK
+	public void receiveACK()
+	{		
+		//receive ACK
+		receivePacket("ACK");
+		
+		//analyze ACK for format
+		if (verbose)
+		{
+			System.out.println("Client: Checking ACK...");
+		}
+		byte[] data = recievedPacket.getData();
+		
+		//print data if verbose
+		if (verbose)
+		{
+			printDatagram(recievedPacket);
+		}
+		
+		//check ACK for validity
+		// _________________PUT CODE HERE_____________
+	}
+	
+	
 	//receive and echo received packet
-	public void receiveAndEcho()
-	{
+	public void receivePacket(String type)
+	{	
 		//prep for response
-		byte[] response = new byte[MAX_SIZE];
+		byte[] response = new byte[MAX_SIZE+4];
 		recievedPacket = new DatagramPacket(response, response.length);
-				
+		
 		//wait for response
-		System.out.println("Client: Waiting for response...");
+		if (verbose)
+		{
+			System.out.println("Client: Waiting for " + type + " packet...");
+		}
 		try
 		{
 			generalSocket.receive(recievedPacket);
@@ -359,25 +383,34 @@ public class TFTPClient
 			e.printStackTrace();
 			System.exit(1);
 		}
-		System.out.println("Client: Packet received");
+		if (verbose)
+		{
+		System.out.println("Client: " + type + " packet received");
+		}
 		
 		//Process and print the response
 		if(verbose)
 		{
-			byte[] data = recievedPacket.getData();
-			int packetSize = recievedPacket.getLength();
-			System.out.println("        Source: " + recievedPacket.getAddress());
-			System.out.println("        Port:   " + recievedPacket.getPort());
-			System.out.println("        Bytes:  " + packetSize);
-			System.out.println("        Cntn:  " + (new String(data,0,packetSize)));
-			System.out.printf("%s", "        Cntn:  ");
-			for(int i = 0; i < packetSize; i++)
-			{
-				System.out.printf("0x%02X", data[i]);
-				System.out.printf("%-2c", ' ');
-			}
-			System.out.printf("%-2c", '\n');
+			printDatagram(recievedPacket);
 		}
+	}
+	
+	
+	//print datagram contents
+	private void printDatagram(DatagramPacket datagram)
+	{
+		byte[] data = datagram.getData();
+		int packetSize = datagram.getLength();
+		System.out.println("        Source: " + recievedPacket.getAddress());
+		System.out.println("        Port:   " + recievedPacket.getPort());
+		System.out.println("        Bytes:  " + packetSize);
+		System.out.printf("%s", "        Cntn:  ");
+		for(int i = 0; i < packetSize; i++)
+		{
+			System.out.printf("0x%02X", data[i]);
+			System.out.printf("%-2c", ' ');
+		}
+		System.out.println("\n        Cntn:  " + (new String(data,0,packetSize)));
 	}
 	
 	
@@ -426,9 +459,6 @@ public class TFTPClient
 			System.out.println("----------------------------------------\n");
 		}
 		*/
-		
-		//close client
-		client.close();
 		
 		/*
 		//generate and send bad datagram
