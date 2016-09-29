@@ -15,7 +15,10 @@
 					packet. Datagram can be 512B max
 * 
 * 
-*Update Log:        v1.1.0
+*Update Log:        
+*					v1.1.1
+*						-added scanner class from user input, all UI finished
+*					v1.1.0
 *						- verbose mode added (method added)
 *						- client can now send datagrams to errorSim OR
 *						  directly to server (ie method testMode)
@@ -35,6 +38,7 @@
 //import external libraries
 import java.io.*;
 import java.net.*;
+import java.util.*;//need to get text from user
 
 
 public class TFTPClient 
@@ -50,6 +54,11 @@ public class TFTPClient
 	private static final int IN_PORT_ERRORSIM = 23;
 	private static final int IN_PORT_SERVER = 69;
 	private static final int MAX_SIZE = 100;
+	
+	//declaring local UI variables
+	private Scanner scan=new Scanner(System.in);//allow text input
+	//private boolean validMode=false; will use later
+	private boolean validOut=false;
 	
 	
 	//generic constructor
@@ -67,11 +76,59 @@ public class TFTPClient
 			System.exit(1);
 		}
 		//initialize echo --> off
-		verbose = false;
+		
+		
+		while(validOut==false)
+		{
+			System.out.println("Select Output Mode: Quite (Q) or Verbose(V)");
+			String userIn = scan.nextLine();
+			
+			if(userIn.equals("Q")|| userIn.equals("q"))
+			{
+				verbose = false;
+				validOut=true;
+				System.out.println("Quite mode selected \n");
+			}
+			
+			else if (userIn.equals("V")||userIn.equals("v"))
+			{
+				verbose=true;
+				validOut=true;
+				System.out.println("Verbose mode selected \n");
+			}
+			
+			else
+			{
+				System.out.println("Invalid Output mode, please try again");
+			}
+		}
+		/* Test/Normal Mode, not needed for itt1, will need later
+		while(validMode==false)
+		{
+			System.out.println("Select Operation Mode: Test(T) or Normal (N) ");
+			String userIn = scan.nextLine();
+			
+			if(userIn.equals("T")|| userIn.equals("t"))
+			{
+				verbose = false;
+				validMode=true;
+			}
+			
+			else if (userIn.equals("N")|| userIn.equals("n"))
+			{
+				verbose=true;
+				validMode=true;
+			}
+			
+			else
+			{
+				System.out.println("Invalid Output mode, please try again");
+			}
+		}
 		//initialize test mode --> off
 		outPort = IN_PORT_SERVER ;
+	*/
 	}
-	
 	
 	//generic accessors and mutators
 	public DatagramPacket getSentPacket()
