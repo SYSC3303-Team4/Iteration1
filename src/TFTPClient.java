@@ -3,19 +3,26 @@
 *Project:           TFTP Project - Group 4
 *Author:            Jason Van Kerkhoven                                             
 *Date of Update:    28/09/2016                                              
-*Version:           1.1.2                                                      
+*Version:           1.1.3                                                      
 *                                                                                   
 *Purpose:           Generates a datagram following the format of [0,R/W,STR1,0,STR2,0],
 					in which R/W signifies read (1) or write (2), STR1 is a filename,
 					and STR2 is the mode. Sends this datagram to the IntermediateHost
-					and waits lfor response from intermediateHost. Repeats this
+					and waits for response from intermediateHost. Repeats this
 					process ten times, then sends a datagram packet that DOES NOT
 					follow the expected format stated above. Waits for response from
 					IntermediateHost. We DO NOT expect a response to the badly formated
 					packet. Datagram can be 512B max
 * 
 * 
-*Update Log:        v1.1.2
+*Update Log:        v1.1.3
+*						- verbose formating altered
+*						- RRQ/WRQ method now uses class constants as opposed to magic numbers
+*						  (code smell removed)
+*						- both generateRWRW(..) and generateDATA changed from public --> private
+*						- sendAndEcho() renamed sendPacket() for naming accuracy, also now private
+*						- IN_PORT_ERRORSIM renamed to IN_PORT_HOST to keep up proper naming conventions
+*					v1.1.2
 *						- now implements TFTPReader class
 *						- can read data from file
 *						- DOES NOT SEND ACKS
@@ -27,7 +34,8 @@
 *								generateDATA()	  | for DATA
 *						- sendAndEcho() is now private, only called from master send() method
 *						- a ton of constants added (see class constants section)
-*						- 
+*						- a bunch of old test code commented out - will remove in future when sure it
+*						  will not be necessary
 *					v1.1.0
 *						- verbose mode added (method added)
 *						- client can now send datagrams to errorSim OR
@@ -44,11 +52,23 @@
 *                       - null
 */
 
+/*
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ TO DO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~(as of v1.1.3)
+ *		[ ] Add receiving and checking of ACKs
+ *		[ ] Further check reader to make sure it is sending the correct packets
+ *		[ ] Patch receive method with a master method that can handle multiple packets
+ *		[ ] Figure out what to do with all incoming packets
+ *		[ ] Add packet numbering (is it a 16bit int or a 0byte followed by a 8bit number????)
+ *		[ ] Test functionality w/ modified server
+ *		[ ] Integrate with UI
+ *		[ ] Write a test class if time permits (????)
+ *		[ ] Update ReadMe.txt
+ */
+
 
 //import external libraries
 import java.io.*;
 import java.net.*;
-import java.util.*;
 
 
 public class TFTPClient 
@@ -60,10 +80,9 @@ public class TFTPClient
 	private boolean verbose;
 	private int outPort;
 	private TFTPReader reader ;
-	private byte[] blockNum ;
 	
 	//declaring local class constants
-	private static final int IN_PORT_ERRORSIM = 23;
+	private static final int IN_PORT_HOST = 23;
 	private static final int IN_PORT_SERVER = 69;
 	private static final int MAX_SIZE = 512;
 	private static final byte[] OPCODE_RRQ =  {0,1}; 
@@ -134,7 +153,7 @@ public class TFTPClient
 		//test mode ON
 		if (t)
 		{
-			outPort = IN_PORT_ERRORSIM;
+			outPort = IN_PORT_HOST;
 		}
 		//test mode OFF
 		else
@@ -155,7 +174,7 @@ public class TFTPClient
 	
 	//generate DatagramPacket, save as sentPacket
 	//type: DATA
-	public void generateDATA()
+	private void generateDATA()
 	{
 		if(verbose)
 		{
@@ -200,7 +219,7 @@ public class TFTPClient
 	
 	//generate DatagramPacket, save as sentPacket
 	//type: RRW or WRQ
-	public void generateRWRQ(String fileName, String mode, byte RWval)
+	private void generateRWRQ(String fileName, String mode, byte[] RWval)
 	{
 		//generate the data to be sent in datagram packet
 		if(verbose)
@@ -215,9 +234,11 @@ public class TFTPClient
 		byte[] data = new byte[fileNameBA.length + modeBA.length + 4];
 		int i = 2;
 			
-		//add first 2 bytes of metadata
-		data[0] = 0x00;
-		data[1] = RWval;
+		//add first 2 bytes of opcode
+		for(int c=0; c<2; c++)
+		{
+			data[c] = RWval[c] ;
+		}
 		//add text
 		for(int c=0; c<fileNameBA.length; c++, i++)
 		{
@@ -253,7 +274,7 @@ public class TFTPClient
 	
 	
 	//send datagram, recieve ACKs
-	public void send(String file, String mode, byte RWval)
+	public void send(String file, String mode, byte[] RWval)
 	{
 		//read and split file
 		try
@@ -270,7 +291,7 @@ public class TFTPClient
 		//prep RRQ/RRW to send
 		generateRWRQ(file, mode, RWval);
 		//send RRQ/RRW
-		sendAndEcho();
+		sendPacket();
 		//wait for ACK
 		//_INSERT ACK HERE_
 		
@@ -278,14 +299,14 @@ public class TFTPClient
 		while ( !(reader.isEmpty()) )
 		{
 			generateDATA();
-			sendAndEcho();
+			sendPacket();
 			// _INSERT ACK HERE_
 		}
 	}
 	
 	
-	//send and echo the datagram
-	private void sendAndEcho()
+	//send a single packet
+	private void sendPacket()
 	{
 		//print packet info IF in verbose
 		if(verbose)
@@ -371,7 +392,7 @@ public class TFTPClient
 		client.verboseMode(true);
 		
 		//send full fille (includes wait for ACK)
-		client.send("DatagramsOutForHarambe.txt", "octet", (byte)0x01);
+		client.send("DatagramsOutForHarambe.txt", "octet", OPCODE_RRQ);
 		
 		//receive server response
 		
