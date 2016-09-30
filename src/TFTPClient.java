@@ -17,7 +17,7 @@
 * 
 *Update Log:		
 					v1.1.5
-						-UI Integration
+						-UI Integration 
 					
 					v1.1.4 
 *						- numerous dangerous accessors/mutators removed
